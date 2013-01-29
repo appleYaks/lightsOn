@@ -45,10 +45,10 @@ checkpid = "ps " + sys.argv[1] + " | wc -l"
 
 while True:
   if int(subprocess.check_output(checkpid, shell=True)) == 1:
-    print "The lightsOn process has been killed! Restoring GNOME SessionManager idle timer."
+    print "The lightsOn pid " + sys.argv[1] + " has been killed! Restoring GNOME SessionManager idle timer."
     sys.exit(1)
   else:
-    print "lightsOn script running and GNOME SessionManager idle inhibited. Everything ok!"
+    print "lightsOn script running on pid " + sys.argv[1] + " and GNOME SessionManager idle inhibited. Everything ok!"
   time.sleep(count)
 
 
