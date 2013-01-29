@@ -33,6 +33,22 @@
 # or if the screensaver eats up CPU that chops into any background processes you have running,
 # such as realtime music programs like Ardour in MIDI keyboard mode.
 # If you use this feature, make sure you use the name of the binary of the program (which may exist, for instance, in /usr/bin).
+#
+# Dealing with GNOME Session Idle (gnome-screensaver):
+#
+# Even after removing gnome-screensaver, the GNOME system may still turn off the screen
+# after the idle timer in the gnome-control-center kicks in. Removing /usr/bin/gnome-screensaver-command may fix this,
+# but you lose the ability to lock the screen from the Menu, or by Ctrl+Alt+L. Making gnome-screensaver-command a
+# symlink to /usr/bin/xscreesaver-command will allow you to keep that feature, but may be the reason for the screen poweroff.
+#
+# Setting "gnome_session_inhibit_idle" to 1 will inhibit the GNOME SessionManager idle timer from taking place
+# by running an accompanying python script that calls the Inhibit() function on the GNOME SessionManager DBUS.
+# The python script and Inhibit() call will persist until either the lightsOn.sh process is killed or
+# the python script process is killed. If the lightsOn.sh process is killed, the python script will sense it
+# after a fixed amount of time, which can be specified when the python script is called, and then exit.
+#
+# More info on the GNOME SessionManager issue:
+# http://www.lucidelectricdreams.com/2011/06/disabling-screensaverlock-screen-on.html
 
 
 # Modify these variables if you want this script to detect if Mplayer,
@@ -47,8 +63,37 @@ minitube_detection=1
 # Names of programs which, when running, you wish to delay the screensaver.
 delay_progs=() # For example ('ardour2' 'gmpc')
 
+# Whether to inhibit gnome session idle
+gnome_session_inhibit_idle=1
+helper_python_script="inhibit-gnome-session-idle.py"
+
 
 # YOU SHOULD NOT NEED TO MODIFY ANYTHING BELOW THIS LINE
+
+if [[ $gnome_session_inhibit_idle == 1 ]]; then
+    # Get directory of this script
+    # http://stackoverflow.com/a/179231
+    pushd . > /dev/null
+    SCRIPT_PATH="${BASH_SOURCE[0]}";
+    if ([ -h "${SCRIPT_PATH}" ]) then
+        while([ -h "${SCRIPT_PATH}" ]) do cd `dirname "$SCRIPT_PATH"`; SCRIPT_PATH=`readlink "${SCRIPT_PATH}"`; done
+    fi
+    cd `dirname ${SCRIPT_PATH}` > /dev/null
+    SCRIPT_PATH=`pwd`;
+    popd  > /dev/null
+
+    LOCATION_PYTHON_SCRIPT="${SCRIPT_PATH}/${helper_python_script}"
+    if [ -f $LOCATION_PYTHON_SCRIPT ]; then
+        # Start python dbus script to inhibit GNOME session idle
+        # It will sense if this bash script process dies and quit if so
+        # Arguments are:
+        #   #1  PID of this script
+        #   #2  time in seconds to check that the PID is running
+        $LOCATION_PYTHON_SCRIPT $$ 60 &
+    else
+        echo "Helper python script not found! Inhibiting the GNOME session from going idle will not work without it!"
+    fi
+fi
 
 # enumerate all the attached screens
 displays=""
@@ -110,9 +155,6 @@ checkFullscreen()
             fi
     done
 }
-
-
-
 
 
 # check if active windows is mplayer, vlc or firefox
